@@ -22,6 +22,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.*/
 const winston = require('winston');
 const wat_scenario = require('wat_scenario');
 
+const PROBA_CHANGER = 1;
+
+
 class NoiseScenario {
 
 	constructor(baseScenario, assertFunction, noiseLevel) {
@@ -51,37 +54,86 @@ class NoiseScenario {
 	}
     
 	async runWithNoise(page) {
-		for (let i=0 ; i < this.baseScenario.actions.length ; i++) {
+		let caIndex;
+		let iCandidateAction;
+		for (let iBaseScenario=0 ; iBaseScenario < this.baseScenario.actions.length ; iBaseScenario++) {
 			try {
-				await this.baseScenario.actions[i].run(page);
+				await this.baseScenario.actions[iBaseScenario].run(page);
 			} catch (ex) {
 				winston.error(ex);
 				winston.info('base action cannot run !');
+				this.candidateActions[iBaseScenario-1][iCandidateAction].outside = this.candidateActions[iBaseScenario-1][iCandidateAction].outside + 1;
+				this.decreaseCandidateActionProba(iBaseScenario-1, iCandidateAction);
 			}
 			try {
-				let candidateAction = this.pickUpOneCandidateAction(i);
+				iCandidateAction = this.pickUpOneCandidateAction(iBaseScenario);
+				let candidateAction = this.candidateActions[iBaseScenario][iCandidateAction];
 				await candidateAction.action.run(page);
 			} catch (ex) {
 				winston.error(ex);
 				winston.info('candidate action cannot run !');
+				this.candidateActions[iBaseScenario][iCandidateAction].phantom = this.candidateActions[iBaseScenario-1][iCandidateAction].phantom + 1;
+				this.decreaseCandidateActionProba(iBaseScenario, iCandidateAction);
 			}
 			//evaluate
 		}
 	}
 
-	pickUpOneCandidateAction(index) {
+	pickUpOneCandidateAction(iBaseScenario) {
 		let random = Math.random();
 		winston.info(`random=${random}`);
 		let proba = 0;
-		for (let i = 0 ; i < this.candidateActions[index].length ; i++) {
-			let candidateAction = this.candidateActions[index][i];
+		for (let iCandidateAction = 0 ; iCandidateAction < this.candidateActions[iBaseScenario].length ; iCandidateAction++) {
+			let candidateAction = this.candidateActions[iBaseScenario][iCandidateAction];
 			proba = proba + candidateAction.proba;
 			if (random < proba) {
-				winston.info(` action ${i} has been choosed`);
-				return candidateAction;
+				winston.info(` action ${iCandidateAction} has been choosed`);
+				return iCandidateAction;
+			}
+		}
+		winston.info(` action ${this.candidateActions[iBaseScenario].length-1} has been choosed`);
+		return (this.candidateActions[iBaseScenario].length-1);
+	}
+
+	decreaseCandidateActionProba(iBaseScenario, iCandidateAction) {
+		let oldProba = this.candidateActions[iBaseScenario][iCandidateAction].proba;
+		let newProba = sigmoid(logit(oldProba) - PROBA_CHANGER); 
+		this.candidateActions[iBaseScenario][iCandidateAction].proba = newProba;
+		winston.info(`Proba changed from ${oldProba} to ${newProba}`);
+		
+		let decrease = oldProba - newProba;
+		winston.info(`decrease is ${decrease}`);
+
+		if (this.candidateActions[iBaseScenario].length > 1) {
+			let increase = (decrease) / (this.candidateActions[iBaseScenario].length-1);
+			winston.info(`shared increase is ${increase}`);
+			for (let i = 0 ; i < this.candidateActions[iBaseScenario].length ; i++) {
+				if (i !== iCandidateAction) {
+					this.candidateActions[iBaseScenario][i].proba = this.candidateActions[iBaseScenario][i].proba + increase;
+				}
 			}
 		}
 	}
+
+	increaseCandidateActionProba(iBaseScenario, iCandidateAction) {
+		let oldProba = this.candidateActions[iBaseScenario][iCandidateAction].proba;
+		let newProba = sigmoid(logit(oldProba) + PROBA_CHANGER); 
+		this.candidateActions[iBaseScenario][iCandidateAction].proba = newProba;
+		winston.info(`Proba changed from ${oldProba} to ${newProba}`);
+
+		let increase = newProba - oldProba;
+
+		if (this.candidateActions[iBaseScenario].length > 1) {
+			let decrease = (increase) / (this.candidateActions[iBaseScenario].length-1);
+			for (let i = 0 ; i < this.candidateActions[iBaseScenario].length ; i++) {
+				if (i !== iCandidateAction) {
+					this.candidateActions[iBaseScenario][i].proba = this.candidateActions[iBaseScenario][i].proba - decrease;
+				}
+			}
+		}		
+	}
+
+	
 
 	getCandidateActions() {
 		return this.candidateActions;
@@ -94,9 +146,23 @@ function scanCandidateAction() {
 	let computeCSSSelector = window['OptimalSelect'].select;
 	let aElements = document.querySelectorAll('a');
 	for (let i=0 ; i < aElements.length ; i++) {
-		actions.push(computeCSSSelector(aElements[i]));
+		if (! isMailTo(aElements[i])) actions.push(computeCSSSelector(aElements[i]));
 	}
 	return actions;
+
+	function isMailTo(element) {
+		let href = element.href;
+		return href && (href.toLowerCase().indexOf('mailto') > -1)
+		
+	}
+}
+
+function sigmoid(t) {
+    return 1/(1+Math.pow(Math.E, -t));
+}
+
+function logit(p) {
+    return Math.log(p / (1-p));
 }
 
 
