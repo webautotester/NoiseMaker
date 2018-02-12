@@ -22,6 +22,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.*/
 const winston = require('winston');
 const wat_scenario = require('wat_scenario');
 
+const puppeteer = require('puppeteer');
+
 const PROBA_CHANGER = 1;
 
 
@@ -33,7 +35,8 @@ class NoiseScenario {
 		this.noiseLevel = noiseLevel;
 	}
     
-	async detectCandidateAction(page) {
+	async detectCandidateAction() {
+		let page = await this.createPage();
 		this.candidateActions = [];
         for (let i=0 ; i < this.baseScenario.actions.length ; i++) {
 			this.candidateActions[i] = [];
@@ -53,11 +56,32 @@ class NoiseScenario {
         }
 	}
     
-	async runWithNoise(page) {
+	async runWithNoise() {
+		
+		let page = await this.createPage();
+		let runContext = {iBaseScenario:0,iCandidateAction:-1};
+
+		page.on('dialog', (dialog) => {
+			if (runContext.iCandidateAction !== -1) {
+				this.decreaseCandidateActionProba(runContext.iBaseScenario, runContext.iCandidateAction);
+			}
+			dialog.dismiss();
+		})
+		
+		this.browser.on('targetcreated', (ev) => {
+			winston.info(`target created : ${ev.type()} , ${ev.url()}, ${ev.page()}`);
+			winston.info(`runContext : ${runContext.iBaseScenario}`);
+			if (runContext.iCandidateAction !== -1) {
+				this.decreaseCandidateActionProba(runContext.iBaseScenario, runContext.iCandidateAction);
+			}
+			ev.page().then ( page => page.close());
+		});
 		let caIndex;
 		let iCandidateAction;
 		for (let iBaseScenario=0 ; iBaseScenario < this.baseScenario.actions.length ; iBaseScenario++) {
+			runContext.iBaseScenario = iBaseScenario;
 			try {
+				runContext.iCandidateAction = -1;
 				await this.baseScenario.actions[iBaseScenario].run(page);
 			} catch (ex) {
 				winston.error(ex);
@@ -67,6 +91,7 @@ class NoiseScenario {
 			}
 			try {
 				iCandidateAction = this.pickUpOneCandidateAction(iBaseScenario);
+				runContext.iCandidateAction = iCandidateAction;
 				let candidateAction = this.candidateActions[iBaseScenario][iCandidateAction];
 				await candidateAction.action.run(page);
 			} catch (ex) {
@@ -77,6 +102,8 @@ class NoiseScenario {
 			}
 			//evaluate
 		}
+		page.close();
+		this.browser.removeAllListeners('targetcreated');
 	}
 
 	pickUpOneCandidateAction(iBaseScenario) {
@@ -138,6 +165,16 @@ class NoiseScenario {
 	getCandidateActions() {
 		return this.candidateActions;
 	}
+
+	async initBrowser() {
+		if (! this.browser) this.browser =  await puppeteer.launch({headless: false, args:['--no-sandbox']});
+	}
+
+	async createPage() {
+		await this.initBrowser();
+		let page = await this.browser.newPage();
+		return page;
+	}
 }
 
 
@@ -164,6 +201,10 @@ function sigmoid(t) {
 function logit(p) {
     return Math.log(p / (1-p));
 }
+
+
+
+
 
 
 module.exports.NoiseScenario = NoiseScenario;

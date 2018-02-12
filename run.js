@@ -22,7 +22,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.*/
 const NoiseScenario = require('./NoiseScenario.js').NoiseScenario;
 const lib = require('wat_scenario');
 const assert = require('assert');
-const puppeteer = require('puppeteer');
 
 const scenario = new lib.Scenario();
 const gotoAction = new lib.GotoAction('http://www.labri.fr');
@@ -32,26 +31,16 @@ scenario.addAction(clickAction);
 
 
 async function run() {
-    let page = await createPage();
     noisyScenario = new NoiseScenario(scenario);
-    await noisyScenario.detectCandidateAction(page);
+    await noisyScenario.detectCandidateAction();
     //ca = noisyScenario.getCandidateActions();
     //console.log(JSON.stringify(ca));
 
     for (let i = 0 ; i < 200 ; i++) {
-        await noisyScenario.runWithNoise(page);
+        await noisyScenario.runWithNoise();
     }
     assert(true);
-    page.close();
 }
 
-async function createPage() {
-    let browser;
-    let page;
-    
-    browser = await puppeteer.launch({headless: false, args:['--no-sandbox']});
-    page = await browser.newPage();
-    return page;
-}
 
 run();
