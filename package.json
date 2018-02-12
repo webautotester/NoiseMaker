@@ -18,7 +18,7 @@
   "homepage": "https://github.com/webautotester/noise#readme",
   "dependencies": {
     "puppeteer": "^1.0.0",
-    "wat_scenario": "^1.0.5",
+    "wat_scenario": "^1.0.6",
     "winston": "^2.4.0"
   },
   "devDependencies": {

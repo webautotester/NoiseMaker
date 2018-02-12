@@ -97,11 +97,12 @@ class NoiseScenario {
 				iCandidateAction = this.pickUpOneCandidateAction(iBaseScenario);
 				runContext.iCandidateAction = iCandidateAction;
 				let candidateAction = this.candidateActions[iBaseScenario][iCandidateAction];
+				winston.info(`will run ${candidateAction.action.toString()}`);
 				await candidateAction.action.run(page);
 			} catch (ex) {
 				winston.error(ex);
 				winston.info('candidate action cannot run !');
-				this.candidateActions[iBaseScenario][iCandidateAction].phantom = this.candidateActions[iBaseScenario-1][iCandidateAction].phantom + 1;
+				this.candidateActions[iBaseScenario][iCandidateAction].phantom = this.candidateActions[iBaseScenario][iCandidateAction].phantom + 1;
 				this.decreaseCandidateActionProba(iBaseScenario, iCandidateAction);
 			}
 			await page.waitFor(1000);
