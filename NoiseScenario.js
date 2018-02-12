@@ -53,15 +53,18 @@ class NoiseScenario {
 					assertFalse : 0
 				});
 			});
-        }
+		}
+		page.close();
 	}
     
 	async runWithNoise() {
 		
 		let page = await this.createPage();
+		await page.authenticate({username:"anonymous",password:"anonymous"});
 		let runContext = {iBaseScenario:0,iCandidateAction:-1};
 
 		page.on('dialog', (dialog) => {
+			console.log('dialog event');
 			if (runContext.iCandidateAction !== -1) {
 				this.decreaseCandidateActionProba(runContext.iBaseScenario, runContext.iCandidateAction);
 			}
@@ -69,8 +72,9 @@ class NoiseScenario {
 		})
 		
 		this.browser.on('targetcreated', (ev) => {
+			console.log(`target created : ${ev.type()} , ${ev.url()}, ${ev.page()}`);
 			winston.info(`target created : ${ev.type()} , ${ev.url()}, ${ev.page()}`);
-			winston.info(`runContext : ${runContext.iBaseScenario}`);
+			winston.info(`runContext : ${runContext.iBaseScenario}, candidateAction : ${runContext.iCandidateAction}`);
 			if (runContext.iCandidateAction !== -1) {
 				this.decreaseCandidateActionProba(runContext.iBaseScenario, runContext.iCandidateAction);
 			}
@@ -100,6 +104,7 @@ class NoiseScenario {
 				this.candidateActions[iBaseScenario][iCandidateAction].phantom = this.candidateActions[iBaseScenario-1][iCandidateAction].phantom + 1;
 				this.decreaseCandidateActionProba(iBaseScenario, iCandidateAction);
 			}
+			await page.waitFor(1000);
 			//evaluate
 		}
 		page.close();

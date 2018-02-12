@@ -21,7 +21,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.*/
 
 const NoiseScenario = require('./NoiseScenario.js').NoiseScenario;
 const lib = require('wat_scenario');
-const assert = require('assert');
 
 const scenario = new lib.Scenario();
 const gotoAction = new lib.GotoAction('http://www.labri.fr');
@@ -37,9 +36,9 @@ async function run() {
     //console.log(JSON.stringify(ca));
 
     for (let i = 0 ; i < 200 ; i++) {
+        console.log(`run ${i}`);
         await noisyScenario.runWithNoise();
     }
-    assert(true);
 }
 
 
